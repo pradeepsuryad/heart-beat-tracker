@@ -1,0 +1,35 @@
+# ── Data & outputs (large binary files) ────────────────────────────────────
+data/*.avi
+data/*.mp4
+data/*.zip
+data/hf_hamlyn_cache/
+data/rectified04_image01/
+data/rectified05_image01/
+outputs/
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Jupyter ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Claude Code session files ────────────────────────────────────────────────
+.claude/
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
