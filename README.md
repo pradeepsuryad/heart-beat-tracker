@@ -280,6 +280,31 @@ Red = high sustained deformation (myocardium), blue = static tissue.
 
 ---
 
+## Quantitative Results
+
+Self-consistency validation of the rolling FFT BPM estimator on both Hamlyn sequences.
+No ECG ground truth is available in the public mirror; metrics characterise estimator
+stability and signal quality.
+
+| Sequence | Frames | Duration (s) | Mean BPM | Std BPM | Median BPM | CV (%) | Global BPM (FFT) | SNR (dB) | Physio valid (%) |
+|---|---|---|---|---|---|---|---|---|---|
+| hamlyn_seq04 | 1573 | 62.9 | 98.0 | 5.9 | 96.0 | 6.0 | 95.4 | 13.9 | 100.0 |
+| hamlyn_seq05 | 899 | 36.0 | 105.6 | 6.9 | 108.0 | 6.5 | 110.2 | 14.4 | 100.0 |
+
+**CV (%)** = coefficient of variation (std / mean × 100) — lower is more stable.
+**SNR (dB)** = ratio of FFT peak power to noise-floor power in the 0.5–3.5 Hz cardiac band.
+Both sequences report 100% of estimates within the physiological range (50–150 BPM).
+
+![BPM validation — rolling estimate and FFT spectrum](assets/bpm_validation.png)
+
+Reproduce with:
+```bash
+python scripts/validate_bpm.py
+# outputs/bpm_validation.png  +  results/validation_table.md
+```
+
+---
+
 ## Tests
 
 ```bash
