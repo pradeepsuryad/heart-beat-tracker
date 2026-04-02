@@ -1,5 +1,7 @@
 # Endoscopic Heart Beat Tracker
 
+[![Python package](https://github.com/pradeepsuryad/heart-beat-tracker/actions/workflows/python-package.yml/badge.svg)](https://github.com/pradeepsuryad/heart-beat-tracker/actions/workflows/python-package.yml)
+
 Dense optical flow pipeline for cardiac tissue motion analysis in endoscopic video.
 Computes per-pixel displacement using the Farnebäck algorithm, overlays a real-time
 strain map, detects cardiac phase (systole/diastole), and estimates heart rate from
@@ -20,6 +22,7 @@ the flow signal without ECG hardware.
 - [Running the Tracker](#running-the-tracker)
 - [Visual Overlays](#visual-overlays)
 - [Results](#results)
+- [Quantitative Results](#quantitative-results)
 - [Tests](#tests)
 - [References](#references)
 
@@ -46,7 +49,7 @@ features. Cardiac tissue is largely textureless and deforms non-rigidly, so a **
 estimate is required.
 
 **Farnebäck dense optical flow** fits a quadratic polynomial to each pixel neighbourhood,
-builds a Gaussian pyramid, and solves a linear system at each pyramid level (coarse → fine)
+builds a Gaussian pyramid, and solves a linear system at each pyramid level (coarse to fine)
 to find the displacement `(dx, dy)` that best aligns successive frames. The result is a
 2-channel flow array at every pixel.
 
@@ -54,10 +57,10 @@ From `(dx, dy)` the pipeline derives:
 
 | Quantity | Formula | Use |
 |---|---|---|
-| Magnitude | `√(dx²+dy²)` | Speed per pixel (px/frame) |
-| Angle | `atan2(dy,dx)` | Direction of motion |
+| Magnitude | `sqrt(dx^2 + dy^2)` | Speed per pixel (px/frame) |
+| Angle | `atan2(dy, dx)` | Direction of motion |
 | Strain | rolling mean of magnitude | Cumulative tissue deformation |
-| BPM | FFT dominant freq × 60 | Heart rate estimate |
+| BPM | FFT dominant freq x 60 | Heart rate estimate |
 
 See Farnebäck (2003) in [References](#references).
 
@@ -70,22 +73,24 @@ heart-beat-tracker/
 ├── README.md
 ├── requirements.txt
 ├── src/
-│   ├── tracker.py        ← flow computation, stats overlay, batch & live pipeline
-│   ├── visualizer.py     ← strain map, phase indicator, motion vectors, colorbar
-│   └── utils.py          ← video I/O, magnitude signal, rolling BPM estimator
+│   ├── tracker.py         ← flow computation, stats overlay, batch & live pipeline
+│   ├── visualizer.py      ← strain map, phase indicator, motion vectors, colorbar
+│   └── utils.py           ← video I/O, magnitude signal, rolling BPM estimator
 ├── scripts/
-│   ├── download_data.py  ← downloads Hamlyn Dataset 4 & 5 from HuggingFace
-│   └── prepare_endovis.py← batch-processes MICCAI EndoVis clips
+│   ├── download_data.py   ← downloads Hamlyn Dataset 4 & 5 from HuggingFace
+│   └── validate_bpm.py    ← BPM self-consistency validation, saves figure + table
 ├── tests/
 │   ├── conftest.py
-│   ├── test_tracker.py   ← 14 tests
-│   ├── test_utils.py     ← 15 tests
-│   └── test_visualizer.py← 14 tests
-├── assets/               ← figures and GIF used in this README
-├── data/                 ← place downloaded videos here (not tracked by git)
-├── outputs/              ← annotated output videos (not tracked by git)
+│   ├── test_tracker.py    ← 14 tests
+│   ├── test_utils.py      ← 15 tests
+│   └── test_visualizer.py ← 14 tests
+├── results/
+│   └── validation_table.md← quantitative BPM metrics
+├── assets/                ← figures and GIF used in this README
+├── data/                  ← place downloaded videos here (not tracked by git)
+├── outputs/               ← annotated output videos (not tracked by git)
 └── notebooks/
-    └── demo.ipynb        ← end-to-end walkthrough with embedded outputs
+    └── demo.ipynb         ← end-to-end walkthrough with embedded outputs
 ```
 
 > **Note:** `data/` and `outputs/` are excluded from git (`.gitignore`).
@@ -111,7 +116,7 @@ pip install -r requirements.txt
 
 ### Hamlyn Centre Endoscopic Video Dataset
 
-In-vivo beating-heart sequences (sequences 4 and 5, 360×288, 25 fps).
+In-vivo beating-heart sequences (sequences 4 and 5, 360x288, 25 fps).
 
 ```bash
 python scripts/download_data.py
@@ -124,29 +129,24 @@ python scripts/download_data.py
 
 68 stereo clips across 12 surgical cases (ex-vivo porcine cadaver, in-vivo porcine
 abdominal procedures, in-vivo human robotic-assisted partial nephrectomy).
-Videos are stereo pairs stacked vertically (1280×2048) or horizontally (720×288).
-Each clip includes `info.yaml` (stacking direction, resolution) and `calibration.yaml`
+Videos are stereo pairs stacked vertically (1280x2048) or horizontally (720x288).
+Each clip has an `info.yaml` (stacking direction, resolution) and `calibration.yaml`
 (stereo camera intrinsics).
 
-Place the extracted dataset at any path and point `--src` to the `train/train/` folder:
+The tracker accepts any OpenCV-readable video — point `--input` directly at any clip:
 
 ```bash
-python scripts/prepare_endovis.py --src /path/to/train/train
-# Reads info.yaml, crops the left-camera half, runs the tracker on every clip.
-# Output: outputs/endovis/case_X_clipY.mp4
-```
-
-Process specific cases only:
-
-```bash
-python scripts/prepare_endovis.py --src /path/to/train/train --cases 1 2 3
+python src/tracker.py \
+    --input  /path/to/train/train/case_1/1/video.mp4 \
+    --output outputs/endovis_case1_clip1.mp4 \
+    --scale  0.5
 ```
 
 ---
 
 ## Reproducing the Results
 
-Follow these steps exactly to go from a fresh clone to all figures and videos.
+Follow these steps exactly to go from a fresh clone to all figures, videos, and metrics.
 
 ### Step 1 — Install dependencies
 
@@ -162,7 +162,7 @@ python scripts/download_data.py
 
 Produces `data/hamlyn_seq04.avi` and `data/hamlyn_seq05.avi`.
 
-### Step 3 — Run the tracker on Hamlyn seq04
+### Step 3 — Run the tracker
 
 ```bash
 python src/tracker.py \
@@ -171,15 +171,23 @@ python src/tracker.py \
     --scale  0.5
 ```
 
-Produces `outputs/demo_flow.mp4` — the annotated video with all overlays.
+Produces `outputs/demo_flow.mp4` — annotated video with all overlays.
 
-### Step 4 — Run the demo notebook
+### Step 4 — Run BPM validation
+
+```bash
+python scripts/validate_bpm.py
+```
+
+Produces `outputs/bpm_validation.png` and `results/validation_table.md`.
+
+### Step 5 — Run the demo notebook
 
 ```bash
 jupyter notebook notebooks/demo.ipynb
 ```
 
-Run all cells in order (Kernel → Restart & Run All). The notebook produces:
+Run all cells in order (Kernel > Restart & Run All). The notebook produces:
 
 | Figure | Content |
 |---|---|
@@ -187,7 +195,7 @@ Run all cells in order (Kernel → Restart & Run All). The notebook produces:
 | Figure 2 | Heartbeat magnitude signal (raw + smoothed) with BPM estimate |
 | Figure 3 | Strain map (1-second window) — original / heatmap / overlay |
 
-### Step 5 — Run the tests
+### Step 6 — Run the tests
 
 ```bash
 python -m pytest tests/ -v
@@ -213,15 +221,15 @@ python src/tracker.py --input data/hamlyn_seq04.avi --output outputs/result.mp4 
 # Display only — no file saved
 python src/tracker.py --live
 
-# Display + save to file
+# Display + save annotated stream to file
 python src/tracker.py --live --output outputs/live_recording.mp4
 
 # Use a specific camera index
 python src/tracker.py --live --camera 1 --output outputs/live_recording.mp4
 ```
 
-Press **Q** to quit the live window. If `--output` is specified the full annotated
-stream is written to that file while the window is open.
+Press **Q** to quit the live window. When `--output` is specified the full annotated
+stream is written to that file in real time while the window is open.
 
 ### All options
 
@@ -231,7 +239,7 @@ stream is written to that file while the window is open.
 | `--output` | — | Path for annotated output video (batch or live) |
 | `--live` | off | Enable live webcam mode |
 | `--camera` | `0` | Camera index for live mode |
-| `--scale` | `1.0` | Resize factor before processing (`0.5` = half-res, ~4× faster) |
+| `--scale` | `1.0` | Resize factor before processing (`0.5` = half-res, ~4x faster) |
 | `--fps` | match input | Override output FPS |
 | `--no-overlays` | off | Disable all visual overlays |
 
@@ -239,15 +247,16 @@ stream is written to that file while the window is open.
 
 ## Visual Overlays
 
-Each output frame carries four overlays (disable with `--no-overlays`):
+Each output frame carries five overlays (disable with `--no-overlays`):
 
 | Overlay | Position | Description |
 |---|---|---|
-| Stats + BPM | Top-left | Frame index, mean/max displacement (px), rolling heart rate |
+| Stats | Top-left | Frame index, mean and max displacement (px) |
+| BPM | Top-left | Rolling heart rate — appears after first 10 s of video |
 | Phase label | Top-right | SYSTOLE (red) or DIASTOLE (green) |
 | Motion vectors | Full frame | Sparse arrow grid — direction and relative magnitude |
 | Strain map | Full frame | JET-coloured 1-second mean magnitude |
-| Colorbar | Bottom-right | Circular HSV wheel mapping colour → motion direction |
+| Colorbar | Bottom-right | Circular HSV wheel mapping colour to motion direction |
 
 **Sample annotated frame:**
 
@@ -283,21 +292,21 @@ Red = high sustained deformation (myocardium), blue = static tissue.
 ## Quantitative Results
 
 Self-consistency validation of the rolling FFT BPM estimator on both Hamlyn sequences.
-No ECG ground truth is available in the public mirror; metrics characterise estimator
-stability and signal quality.
+No ECG ground truth is available in the public Hamlyn mirror; the metrics below
+characterise estimator stability and signal quality.
 
 | Sequence | Frames | Duration (s) | Mean BPM | Std BPM | Median BPM | CV (%) | Global BPM (FFT) | SNR (dB) | Physio valid (%) |
 |---|---|---|---|---|---|---|---|---|---|
 | hamlyn_seq04 | 1573 | 62.9 | 98.0 | 5.9 | 96.0 | 6.0 | 95.4 | 13.9 | 100.0 |
 | hamlyn_seq05 | 899 | 36.0 | 105.6 | 6.9 | 108.0 | 6.5 | 110.2 | 14.4 | 100.0 |
 
-**CV (%)** = coefficient of variation (std / mean × 100) — lower is more stable.
-**SNR (dB)** = ratio of FFT peak power to noise-floor power in the 0.5–3.5 Hz cardiac band.
-Both sequences report 100% of estimates within the physiological range (50–150 BPM).
+**CV (%)** = coefficient of variation (std / mean x 100) — lower is more stable.  
+**SNR (dB)** = ratio of FFT peak power to noise-floor power in the 0.5–3.5 Hz cardiac band.  
+Both sequences achieve 100% of estimates within the physiological range (50–150 BPM).
 
 ![BPM validation — rolling estimate and FFT spectrum](assets/bpm_validation.png)
 
-Reproduce with:
+Reproduce:
 ```bash
 python scripts/validate_bpm.py
 # outputs/bpm_validation.png  +  results/validation_table.md
