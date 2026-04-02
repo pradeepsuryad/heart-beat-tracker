@@ -23,6 +23,7 @@ the flow signal without ECG hardware.
 - [Visual Overlays](#visual-overlays)
 - [Results](#results)
 - [Quantitative Results](#quantitative-results)
+- [Ablation Study](#ablation-study)
 - [Tests](#tests)
 - [References](#references)
 
@@ -78,7 +79,8 @@ heart-beat-tracker/
 │   └── utils.py           ← video I/O, magnitude signal, rolling BPM estimator
 ├── scripts/
 │   ├── download_data.py   ← downloads Hamlyn Dataset 4 & 5 from HuggingFace
-│   └── validate_bpm.py    ← BPM self-consistency validation, saves figure + table
+│   ├── validate_bpm.py    ← BPM self-consistency validation, saves figure + table
+│   └── run_baseline.py    ← ablation: Farneback vs. frame-differencing SNR comparison
 ├── tests/
 │   ├── conftest.py
 │   ├── test_tracker.py    ← 14 tests
@@ -310,6 +312,33 @@ Reproduce:
 ```bash
 python scripts/validate_bpm.py
 # outputs/bpm_validation.png  +  results/validation_table.md
+```
+
+---
+
+## Ablation Study
+
+Comparison of the Farneback dense optical flow signal against a naive frame-differencing
+baseline (`|I_t - I_{t-1}|`) on the same two sequences. Both methods feed the same FFT
+BPM estimator; only the heartbeat signal extraction differs.
+
+| Sequence | Farneback BPM | Farneback SNR (dB) | Differencing BPM | Differencing SNR (dB) | Delta SNR (dB) |
+|---|---|---|---|---|---|
+| hamlyn_seq04 | 95.4 | 13.9 | 98.3 | 14.7 | -0.8 |
+| hamlyn_seq05 | **110.2** | 14.4 | **53.5** | 17.2 | -2.8 |
+
+Frame differencing reports **53.5 BPM on seq05 — exactly half the true rate**.
+Because `absdiff` discards the sign of displacement, the signal peaks twice per cardiac
+cycle (once during systole, once during diastole), causing the FFT to lock onto the
+second sub-harmonic. Farneback preserves signed displacement vectors and recovers
+the correct fundamental frequency in both sequences.
+
+![Ablation — Farneback vs. frame differencing FFT spectra](assets/baseline_comparison.png)
+
+Reproduce:
+```bash
+python scripts/run_baseline.py
+# outputs/baseline_comparison.png
 ```
 
 ---
